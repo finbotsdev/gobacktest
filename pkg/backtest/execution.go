@@ -1,8 +1,7 @@
 package backtest
 
 import (
-	// "fmt"
-	"github.com/dirkolbrich/gobacktest/pkg/utils"
+// "fmt"
 )
 
 // ExecutionHandler is the basic interface for executing orders
@@ -13,7 +12,17 @@ type ExecutionHandler interface {
 // Exchange is a basic execution handler implementation
 type Exchange struct {
 	Symbol      string
-	ExchangeFee float64
+	Commission  CommissionHandler
+	ExchangeFee ExchangeFeeHandler
+}
+
+// NewExchange creates a default exchange with sensible defaults ready for use.
+func NewExchange() *Exchange {
+	return &Exchange{
+		Symbol:      "TEST",
+		Commission:  &FixedCommission{Commission: 0},
+		ExchangeFee: &FixedExchangeFee{ExchangeFee: 0},
+	}
 }
 
 // ExecuteOrder executes an order event
@@ -37,35 +46,21 @@ func (e *Exchange) ExecuteOrder(order OrderEvent, data DataHandler) (*Fill, erro
 		f.Direction = "SLD"
 	}
 
-	f.Commission = e.calculateCommission(float64(f.Qty), f.Price)
-	f.ExchangeFee = e.calculateExchangeFee()
-	f.Cost = e.calculateCost(f.Commission, f.ExchangeFee)
+	commission, err := e.Commission.Calculate(float64(f.Qty), f.Price)
+	if err != nil {
+		return f, err
+	}
+	f.Commission = commission
+
+	exchangeFee, err := e.ExchangeFee.Fee()
+	if err != nil {
+		return f, err
+	}
+	f.ExchangeFee = exchangeFee
+
+	f.Cost = e.calculateCost(commission, exchangeFee)
 
 	return f, nil
-}
-
-// calculateComission() calculates the commission for a stock trade
-//
-// based on the conditions of IngDiba
-// see https://www.ing-diba.de/wertpapiere/direkt-depot/konditionen
-func (e *Exchange) calculateCommission(qty, price float64) float64 {
-	var comMin = 9.90
-	var comMax = 59.90
-	var comRate = 0.0025 // in percent
-
-	switch {
-	case (qty * price * comRate) < comMin:
-		return comMin
-	case (qty * price * comRate) > comMax:
-		return comMax
-	default:
-		return utils.Round(qty*price*comRate, 4)
-	}
-}
-
-// calculateExchangeFee() calculates the exchange fee for a stock trade
-func (e *Exchange) calculateExchangeFee() float64 {
-	return e.ExchangeFee
 }
 
 // calculateCost() calculates the total cost for a stock trade

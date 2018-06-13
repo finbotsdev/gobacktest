@@ -1,90 +1,63 @@
-[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](/LICENSE.md)
-[![Travis](https://img.shields.io/travis/dirkolbrich/gobacktest.svg?style=flat-square)](https://travis-ci.org/dirkolbrich/gobacktest)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/dirkolbrich/gobacktest)
-[![Coverage Status](https://img.shields.io/coveralls/dirkolbrich/gobacktest/master.svg?style=flat-square)](https://coveralls.io/github/dirkolbrich/gobacktest?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/dirkolbrich/gobacktest?style=flat-square)](https://goreportcard.com/report/github.com/dirkolbrich/gobacktest)
-
-_**Heads up:** This is a framework in development, with only basic functionality._
-
----
-
 # gobacktest - Fundamental stock analysis backtesting
 
 An event-driven backtesting framework to test stock trading strategies based on fundamental analysis. Preferably this package will be the core of a backend service exposed via a REST API.
 
 ## Usage
 
-Basic example:
+Example tests are in the `/examples` folder.
 
 ```golang
 package main
 
 import (
-  "github.com/dirkolbrich/gobacktest/pkg/backtest"
-  "github.com/dirkolbrich/gobacktest/pkg/data"
-  "github.com/dirkolbrich/gobacktest/pkg/strategy"
+    "github.com/dirkolbrich/gobacktest/pkg/backtest"
+    "github.com/dirkolbrich/gobacktest/pkg/data"
+    "github.com/dirkolbrich/gobacktest/pkg/strategy"
 )
 
 func main() {
-  // initiate new backtester
-  test := backtest.New()
+    // we need a new blanc backtester
+    test := backtest.New()
 
-  // define and load symbols
-  symbols := []string{"TEST.DE"}
-  test.SetSymbols(symbols)
+    // define the symbols to be tested and load them into the backtest
+    symbols := []string{"TEST.DE"}
+    test.SetSymbols(symbols)
 
-  // create data provider and load data into the backtest
-  data := &data.BarEventFromCSVFile{FileDir: "../testdata/test/"}
-  data.Load(symbols)
-  test.SetData(data)
+    // create a data provider and load the data into the backtest
+    data := &data.BarEventFromCSVFile{FileDir: "../testdata/test/"}
+    data.Load(symbols)
+    test.SetData(data)
 
-  // create strategy provider and load into the backtest
-  strategy := &strategy.Basic{}
-  test.SetStrategy(strategy)
+    // set the portfolio with initial cash and a default size and risk manager
+    portfolio := &backtest.Portfolio{}
+    portfolio.SetInitialCash(10000)
 
-  // run the backtest
-  test.Run()
+    sizeManager := &backtest.Size{DefaultSize: 100, DefaultValue: 1000}
+    portfolio.SetSizeManager(sizeManager)
 
-  // print the result of the test
-  test.Stats().PrintResult()
+    riskManager := &backtest.Risk{}
+    portfolio.SetRiskManager(riskManager)
+
+    test.SetPortfolio(portfolio)
+
+    // create a strategy provider and load it into the backtest
+    strategy := &strategy.Basic{}
+    test.SetStrategy(strategy)
+
+    // create an execution provider and load it into the backtest
+    exchange := &backtest.Exchange{}
+    test.SetExchange(exchange)
+
+    // choose a statistic and load into the backtest
+    statistic := &backtest.Statistic{}
+    test.SetStatistic(statistic)
+
+    // run the backtest
+    test.Run()
+
+    // print the result of the test
+    test.Stats().TotalEquityReturn()
 }
-```
-
-More example tests are in the `/examples` folder.
-
-The single parts of the backtester can be set independently:
-
-```golang
-// initiate new backtester
-test := &Test{}
-
-// set the portfolio with initial cash and a default size and risk manager
-portfolio := &backtest.Portfolio{}
-portfolio.SetInitialCash(10000)
-
-sizeManager := &backtest.Size{DefaultSize: 100, DefaultValue: 1000}
-portfolio.SetSizeManager(sizeManager)
-
-riskManager := &backtest.Risk{}
-portfolio.SetRiskManager(riskManager)
-
-test.SetPortfolio(portfolio)
-
-// create a strategy provider and load it into the backtest
-strategy := &strategy.Basic{}
-test.SetStrategy(strategy)
-
-// create an execution provider and load it into the backtest
-exchange := &backtest.Exchange{
-    Symbol:      "TEST",
-    Commission:  &FixedCommission{Commission: 0},
-    ExchangeFee: &FixedExchangeFee{ExchangeFee: 0},
-}
-test.SetExchange(exchange)
-
-// choose a statistic and load into the backtest
-statistic := &backtest.Statistic{}
-test.SetStatistic(statistic)
 ```
 
 ## Dependencies
